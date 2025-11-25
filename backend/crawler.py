@@ -5,6 +5,68 @@ from sqlalchemy.orm import Session
 from database import Hotspot, SessionLocal
 import json
 import re
+import time
+import os
+from playwright.sync_api import sync_playwright
+
+def fetch_hotspot_details(url: str, source: str):
+    """
+    Fetch details for a specific hotspot URL using Playwright.
+    Returns a tuple (content, screenshot_path, summary).
+    """
+    try:
+        with sync_playwright() as p:
+            # Launch browser in headless mode
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            
+            # Navigate to the URL
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            
+            # Wait a bit for dynamic content to load
+            page.wait_for_timeout(2000)
+            
+            # Get title BEFORE taking screenshot (while page is still active)
+            try:
+                title = page.title()
+            except:
+                title = "Unknown Title"
+            
+            # Take screenshot
+            screenshot_dir = os.path.join(os.path.dirname(__file__), "static", "screenshots")
+            os.makedirs(screenshot_dir, exist_ok=True)
+            
+            # Generate unique filename based on timestamp
+            timestamp = int(time.time() * 1000)
+            screenshot_filename = f"screenshot_{timestamp}.png"
+            screenshot_path = os.path.join(screenshot_dir, screenshot_filename)
+            
+            page.screenshot(path=screenshot_path, full_page=True)
+            
+            # Extract text content
+            # Try to get main content area (this is generic, can be customized per platform)
+            content = page.inner_text('body')
+            
+            # Clean up excessive whitespace
+            content = '\n'.join([line.strip() for line in content.split('\n') if line.strip()])
+            
+            # Limit content length
+            if len(content) > 5000:
+                content = content[:5000] + "\n\n... (content truncated)"
+            
+            # Close browser AFTER getting all data
+            browser.close()
+            
+            # Generate a simple summary (in production, use an LLM API)
+            summary = f"📸 Screenshot captured. Article: {title[:100]}..."
+            
+            # Return relative path for database storage
+            relative_screenshot_path = f"/static/screenshots/{screenshot_filename}"
+            
+            return content, relative_screenshot_path, summary
+
+    except Exception as e:
+        return f"Error fetching details with Playwright: {str(e)}", None, "Failed to generate summary."
 
 def fetch_weibo_hot():
     """

@@ -22,6 +22,9 @@ class Hotspot(Base):
     rank = Column(Integer)
     hot_value = Column(String) # e.g., "1000万热度"
     created_at = Column(DateTime, default=datetime.utcnow)
+    content = Column(String, nullable=True) # Full text content
+    media_paths = Column(String, nullable=True) # JSON string of local paths to images/videos
+    summary = Column(String, nullable=True) # AI generated summary
 
 def init_db():
     Base.metadata.create_all(bind=engine)
